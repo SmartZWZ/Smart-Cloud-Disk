@@ -3,8 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/windowBackground"
     android:fitsSystemWindows="true">
+
+    <!-- 0. 全局背景图 -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/bg_common"
+        android:scaleType="centerCrop"
+        android:alpha="0.2"
+        android:contentDescription="背景" />
 
     <!-- 1. 文件列表 -->
     <LinearLayout
@@ -12,13 +20,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@id/bottom_navigation"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:background="@android:color/transparent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#EEEEEE">
+            android:orientation="vertical">
 
             <!-- 搜索框 -->
             <LinearLayout
@@ -88,125 +96,279 @@
                 android:layout_gravity="center"
                 android:text="文件夹为空"
                 android:visibility="gone"
-                android:textColor="#999999" />
+                android:textColor="@color/text_tertiary" />
         </FrameLayout>
     </LinearLayout>
 
     <!-- 2. “我的”界面 -->
-    <LinearLayout
+    <ScrollView
         android:id="@+id/layout_me"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@id/bottom_navigation"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="40dp"
-        android:visibility="gone">
-
-        <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@android:drawable/ic_menu_myplaces"
-            app:tint="@color/design_default_color_primary" />
-
-        <TextView
-            android:id="@+id/tv_username_display"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="当前用户: "
-            android:textSize="18sp"
-            android:textStyle="bold" />
+        android:visibility="gone"
+        android:background="@android:color/transparent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:orientation="vertical">
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginTop="20dp"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="2dp"
+                app:strokeColor="@color/primary">
+                <ImageView
+                    android:id="@+id/iv_user_avatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@mipmap/my_ic"
+                    android:scaleType="centerCrop" />
+            </com.google.android.material.card.MaterialCardView>
+
             <TextView
-                android:id="@+id/tv_storage_text"
+                android:id="@+id/tv_username_display"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="正在计算容量..."
-                android:textSize="14sp" />
-            <ProgressBar
-                android:id="@+id/storage_progress"
-                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_marginTop="16dp"
+                android:text="CloudDisk User"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"/>
+
+            <!-- 存储空间卡片 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:layout_marginTop="8dp"
-                android:max="100" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="存储空间 (专属 1TB)"
+                        android:textSize="14sp"
+                        android:textStyle="bold"/>
+                    <TextView
+                        android:id="@+id/tv_storage_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="正在计算容量..."
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"/>
+                    <ProgressBar
+                        android:id="@+id/storage_progress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="6dp"
+                        android:layout_marginTop="12dp"
+                        android:max="100" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 设置列表 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <Button
+                        android:id="@+id/btn_change_password"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:gravity="start|center_vertical"
+                        android:text="修改登录密码"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/text_primary"
+                        app:icon="@android:drawable/ic_lock_idle_lock"
+                        app:iconPadding="16dp"
+                        app:iconTint="@color/text_secondary" />
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" android:layout_marginStart="50dp"/>
+
+                    <LinearLayout
+                        android:id="@+id/btn_app_lock_settings"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?android:attr/selectableItemBackground"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_lock_idle_lock"
+                            app:tint="@color/text_secondary"/>
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:text="应用锁设置"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_media_next"
+                            app:tint="@color/text_tertiary"/>
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" android:layout_marginStart="50dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_dialog_info"
+                            app:tint="@color/text_secondary"/>
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="16dp"
+                            android:text="2FA 安全盾校验"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switch_2fa"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btn_view_qr"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:gravity="start|center_vertical"
+                        android:text="查看绑定二维码"
+                        android:visibility="gone"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/text_primary"
+                        app:icon="@android:drawable/ic_menu_gallery"
+                        app:iconPadding="16dp"
+                        app:iconTint="@color/text_secondary" />
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" android:layout_marginStart="50dp"/>
+
+                    <Button
+                        android:id="@+id/btn_check_update_me"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:gravity="start|center_vertical"
+                        android:text="检查版本更新"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/text_primary"
+                        app:icon="@android:drawable/stat_notify_sync"
+                        app:iconPadding="16dp"
+                        app:iconTint="@color/text_secondary" />
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/divider" android:layout_marginStart="50dp"/>
+
+                    <Button
+                        android:id="@+id/btn_about_us"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:gravity="start|center_vertical"
+                        android:text="关于 CloudDisk"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/text_primary"
+                        app:icon="@android:drawable/ic_menu_info_details"
+                        app:iconPadding="16dp"
+                        app:iconTint="@color/text_secondary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 退出登录按钮 -->
+            <Button
+                android:id="@+id/btn_logout"
+                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="24dp"
+                android:text="退出当前账号"
+                android:backgroundTint="@color/danger"
+                app:cornerRadius="12dp" />
+
             <TextView
+                android:id="@+id/tv_cancel_account"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:text="总容量: 1 TB"
-                android:textSize="12sp" />
+                android:layout_marginTop="16dp"
+                android:text="注销账户并删除云端数据"
+                android:textColor="@color/text_tertiary"
+                android:textSize="12sp"
+                android:padding="12dp" />
+
+            <!-- 版权信息区 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="20dp"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_app_version"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Version 2.0.1"
+                    android:textColor="@color/text_disabled"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Developed by ZWZ"
+                    android:textColor="@color/text_disabled"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Copyright © 2026 ZWZ Studio. All Rights Reserved."
+                    android:textColor="@color/text_copyright"
+                    android:textSize="11sp"
+                    android:textStyle="italic" />
+            </LinearLayout>
         </LinearLayout>
-
-        <Button
-            android:id="@+id/btn_change_password"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:text="修改登录密码"
-            app:strokeColor="@color/design_default_color_primary" />
-
-        <Button
-            android:id="@+id/btn_logout"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="退出登录"
-            android:textColor="#F44336"
-            app:strokeColor="#F44336" />
-
-        <TextView
-            android:id="@+id/tv_cancel_account"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="注销并删除所有数据"
-            android:textColor="#999999"
-            android:textSize="12sp"
-            android:padding="8dp" />
-
-        <!-- 正规化信息展示区 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tv_app_version"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="版本号: --"
-                android:textColor="#BBBBBB"
-                android:textSize="11sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="开发者: ZWZ"
-                android:textColor="#BBBBBB"
-                android:textSize="11sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Copyright © 2026 ZWZ. All Rights Reserved."
-                android:textColor="#CCCCCC"
-                android:textSize="10sp"
-                android:textStyle="italic" />
-        </LinearLayout>
-    </LinearLayout>
+    </ScrollView>
 
     <!-- 2.5 传输界面 -->
     <LinearLayout
@@ -302,6 +464,71 @@
 
     </LinearLayout>
 
+    <!-- 2.7 助手界面 -->
+    <LinearLayout
+        android:id="@+id/layout_ai"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/bottom_navigation"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AI 助手"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            android:layout_marginBottom="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="智能高级搜索"
+                    android:textStyle="bold"
+                    android:textSize="16sp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="基于 DeepSeek 大模型，支持语义理解搜索。例如：“找出去年的旅游照片”、“关于项目的文档”。"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="功能即将上线，敬请期待..."
+            android:layout_gravity="center"
+            android:layout_marginTop="40dp"
+            android:textColor="@color/text_tertiary"
+            android:visibility="gone"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_open_ai_chat"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="唤起 AI 助手对话"
+            app:icon="@android:drawable/ic_btn_speak_now"
+            app:cornerRadius="12dp"
+            android:layout_marginTop="20dp" />
+
+    </LinearLayout>
+
     <!-- 3. 底部导航 (elevation设为8dp) -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_navigation"
@@ -352,7 +579,7 @@
         android:visibility="gone"
         android:onClick="onMoveSelectedClick"
         app:fabSize="normal"
-        app:backgroundTint="#9C27B0"
+        app:backgroundTint="@color/accent_purple"
         app:tint="@android:color/white" />
 
     <!-- 4.58 删除按钮 (多选时显示) -->
@@ -367,7 +594,7 @@
         android:visibility="gone"
         android:onClick="onDeleteSelectedClick"
         app:fabSize="normal"
-        app:backgroundTint="#E91E63"
+        app:backgroundTint="@color/accent_pink"
         app:tint="@android:color/white" />
 
     <!-- 4.6 上传按钮 -->
@@ -381,7 +608,7 @@
         android:src="@android:drawable/stat_sys_upload"
         android:onClick="onUploadClick"
         app:fabSize="normal"
-        app:backgroundTint="#4CAF50"
+        app:backgroundTint="@color/secondary"
         app:tint="@android:color/white" />
 
     <!-- 4.7 新建文件夹按钮 -->
@@ -395,7 +622,7 @@
         android:src="@android:drawable/ic_input_add"
         android:onClick="onNewFolderClick"
         app:fabSize="normal"
-        app:backgroundTint="#FF9800"
+        app:backgroundTint="@color/warning"
         app:tint="@android:color/white" />
 
     <!-- 5. 全屏播放器 (必须在最后，elevation设为12dp，并开启点击拦截) -->
@@ -403,7 +630,7 @@
         android:id="@+id/player_full_screen"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#F5F5F5"
+        android:background="@color/player_background"
         android:elevation="12dp"
         android:clickable="true"
         android:focusable="true"
@@ -431,7 +658,7 @@
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
             android:text="正在播放"
-            android:textColor="#333333"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold"
             android:singleLine="true"
@@ -533,7 +760,7 @@
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="8dp"
                 android:text="00:00 / 00:00"
-                android:textColor="#999999"
+                android:textColor="@color/text_tertiary"
                 android:textSize="12sp" />
 
             <LinearLayout
@@ -550,7 +777,7 @@
                     android:src="@android:drawable/ic_media_previous"
                     android:background="@drawable/btn_circle_bg"
                     android:layout_marginEnd="32dp"
-                    app:tint="#333333" />
+                    app:tint="@color/text_primary" />
 
                 <ImageButton
                     android:id="@+id/btn_play_pause"
@@ -560,7 +787,7 @@
                     android:onClick="onPlayerControl"
                     android:background="@drawable/btn_circle_bg"
                     android:elevation="2dp"
-                    app:tint="#2196F3" />
+                    app:tint="@color/primary" />
 
                 <ImageButton
                     android:id="@+id/btn_next"
@@ -569,7 +796,7 @@
                     android:src="@android:drawable/ic_media_next"
                     android:background="@drawable/btn_circle_bg"
                     android:layout_marginStart="32dp"
-                    app:tint="#333333" />
+                    app:tint="@color/text_primary" />
 
             </LinearLayout>
         </LinearLayout>

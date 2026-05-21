@@ -14,8 +14,8 @@ android {
         applicationId "com.example.clouddisk"
         minSdk 28
         targetSdk 36
-        versionCode 4
-        versionName "1.0.4"
+        versionCode 203
+        versionName "2.0.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -33,8 +33,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true // 开启混淆
-            shrinkResources true // 移除无用的资源文件
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -67,6 +67,7 @@ dependencies {
     implementation libs.material
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
+    implementation libs.biometric
     testImplementation libs.junit
     androidTestImplementation libs.espresso.core
     androidTestImplementation libs.ext.junit

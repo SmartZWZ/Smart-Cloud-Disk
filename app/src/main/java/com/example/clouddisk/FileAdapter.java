@@ -64,22 +64,21 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         holder.tvSize.setText(file.getSizeText());
 
         if (file.isDirectory()) {
-            holder.ivIcon.setImageResource(android.R.drawable.ic_menu_agenda);
+            holder.ivIcon.setImageResource(R.drawable.ic_file_folder);
             holder.checkBox.setVisibility(View.GONE);
         } else {
             String name = file.getName().toLowerCase();
             if (name.matches(".*\\.(jpg|jpeg|png|gif|webp)$")) {
-                holder.ivIcon.setImageResource(android.R.drawable.ic_menu_gallery);
+                holder.ivIcon.setImageResource(R.drawable.ic_file_pic);
             } else if (name.matches(".*\\.(mp4|mkv|mov|avi)$")) {
-                holder.ivIcon.setImageResource(android.R.drawable.ic_media_play);
+                holder.ivIcon.setImageResource(R.drawable.ic_file_video);
             } else if (name.matches(".*\\.(mp3|wav|flac|aac|m4a)$")) {
-                holder.ivIcon.setImageResource(android.R.drawable.presence_audio_busy);
-            } else if (name.endsWith(".pdf")) {
-                holder.ivIcon.setImageResource(android.R.drawable.ic_menu_edit);
-            } else if (name.matches(".*\\.(zip|rar|7z)$")) {
-                holder.ivIcon.setImageResource(android.R.drawable.ic_menu_set_as);
+                holder.ivIcon.setImageResource(R.drawable.ic_file_audio);
+            } else if (name.matches(".*\\.(doc|docx|pdf|xls|xlsx|ppt|pptx|txt)$")) {
+                holder.ivIcon.setImageResource(R.drawable.ic_file_docx);
             } else {
-                holder.ivIcon.setImageResource(android.R.drawable.ic_menu_save);
+                // 默认图标
+                holder.ivIcon.setImageResource(R.drawable.ic_file_unknown);
             }
             holder.checkBox.setVisibility(isSelectionMode ? View.VISIBLE : View.GONE);
             holder.checkBox.setChecked(selectedFiles.contains(file));

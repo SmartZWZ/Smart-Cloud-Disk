@@ -2,7 +2,8 @@
 .gradle/
 local.properties
 /build/
-
+/alibaba/
+/wenziyun/
 # IDE 配置文件
 .idea/
 *.iml
@@ -19,3 +20,8 @@ my_key
 
 # 系统残留
 .DS_Store
+
+# 助手教学文档
+Teach.txt
+wenziyun.zip
+alibaba.zip

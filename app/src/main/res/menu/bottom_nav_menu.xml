@@ -2,14 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_files"
-        android:icon="@android:drawable/ic_menu_save"
+        android:icon="@drawable/ic_nav_files"
         android:title="文件" />
     <item
         android:id="@+id/nav_trans"
-        android:icon="@android:drawable/stat_sys_download"
+        android:icon="@drawable/ic_nav_trans"
         android:title="传输" />
     <item
+        android:id="@+id/nav_ai"
+        android:icon="@drawable/ic_nav_ai"
+        android:title="助手" />
+    <item
         android:id="@+id/nav_me"
-        android:icon="@android:drawable/ic_menu_myplaces"
+        android:icon="@drawable/ic_nav_me"
         android:title="我的" />
 </menu>

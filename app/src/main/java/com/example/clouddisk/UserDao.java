@@ -40,4 +40,7 @@ public interface UserDao {
 
     @Query("SELECT SUM(size) FROM file_index WHERE owner = :username AND isDir = 0")
     long getTotalUsedSize(String username);
+
+    @Query("SELECT * FROM file_index WHERE owner = :username")
+    java.util.List<FileIndex> getAllFilesForAi(String username);
 }

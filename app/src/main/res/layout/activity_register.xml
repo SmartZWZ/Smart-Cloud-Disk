@@ -1,62 +1,121 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="32dp"
-    android:gravity="center">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="新用户注册"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="32dp"/>
-
-    <EditText
-        android:id="@+id/re_username"
+    <!-- 1. 全屏背景图 -->
+    <ImageView
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="设置用户名"
-        android:layout_marginBottom="16dp"/>
+        android:layout_height="match_parent"
+        android:src="@drawable/splash_background"
+        android:scaleType="centerCrop"
+        android:contentDescription="背景" />
 
-    <EditText
-        android:id="@+id/re_password"
+    <!-- 2. 半透明遮罩 -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="设置密码"
-        android:inputType="textPassword"
-        android:layout_marginBottom="16dp"/>
+        android:layout_height="match_parent"
+        android:background="#33000000" />
 
-    <EditText
-        android:id="@+id/re_confirm_password"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="确认密码"
-        android:inputType="textPassword"
-        android:layout_marginBottom="16dp"/>
-
-    <EditText
-        android:id="@+id/re_invite_code"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="请输入8位邀请码"
-        android:inputType="textCapCharacters"
-        android:maxLength="8"
-        android:layout_marginBottom="16dp"/>
-
-    <CheckBox
-        android:id="@+id/cb_use_2fa"
+    <!-- 3. 注册卡片 -->
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="开启2FA安全验证 (推荐)"
-        android:layout_marginBottom="16dp"/>
+        android:layout_gravity="center"
+        android:layout_margin="24dp">
 
-    <Button
-        android:id="@+id/btn_do_register"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:text="完成注册并登录"
-        android:backgroundTint="#4CAF50"/>
-</LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:background="@drawable/bg_login_card">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="新用户注册"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:layout_marginBottom="24dp"/>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="设置用户名"
+                android:layout_marginBottom="12dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/re_username"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="设置密码"
+                app:passwordToggleEnabled="true"
+                android:layout_marginBottom="12dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/re_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="确认密码"
+                app:passwordToggleEnabled="true"
+                android:layout_marginBottom="12dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/re_confirm_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="请输入8位邀请码"
+                android:layout_marginBottom="12dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/re_invite_code"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters"
+                    android:maxLength="8" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <CheckBox
+                android:id="@+id/cb_use_2fa"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="开启2FA安全验证 (推荐)"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
+                android:id="@+id/btn_do_register"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="完成注册并登录"
+                android:textSize="16sp"
+                app:cornerRadius="12dp"
+                android:backgroundTint="@color/primary"
+                android:textColor="@color/white"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+</FrameLayout>

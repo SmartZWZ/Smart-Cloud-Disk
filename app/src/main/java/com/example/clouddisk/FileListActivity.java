@@ -68,8 +68,19 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.LazyHeaders;
 import com.github.chrisbanes.photoview.PhotoView;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.view.WindowManager;
+import java.util.concurrent.Executor;
 
-public class FileListActivity extends AppCompatActivity {
+public class FileListActivity extends AppCompatActivity implements SensorEventListener {
 
     private RecyclerView rvFiles, rvTrans;
     private FileAdapter adapter;
@@ -81,7 +92,7 @@ public class FileListActivity extends AppCompatActivity {
     private PlayerView videoPlayerView;
     private ImageView imgDisc;
     private PhotoView ivFullImage;
-    private View layoutMe, layoutTrans, layoutFilesContainer, playerView, layoutAudioControls;
+    private View layoutMe, layoutTrans, layoutFilesContainer, layoutAi, playerView, layoutAudioControls;
     private View layoutTransCategories, layoutTransListContainer;
     private View layoutVideoPlaylist;
     private RecyclerView rvVideoPlaylist;
@@ -112,10 +123,38 @@ public class FileListActivity extends AppCompatActivity {
     private static final String CD2_TOKEN = Config.CD2_TOKEN;
     private final long TOTAL_CAPACITY = 1024L * 1024 * 1024 * 1024; // 1TB
 
+    private SensorManager sensorManager;
+    private Sensor lightSensor;
+    private boolean isBiometricAuthenticated = false;
+
+    private com.google.android.material.switchmaterial.SwitchMaterial switch2FA;
+    private View btnAppLockSettings;
+    private android.widget.Button btnViewQR;
+    
+    private static final String SP_LOCK_FACE = "lock_face";
+    private static final String SP_LOCK_FINGER = "lock_finger";
+    private static final String SP_LOCK_PASS = "lock_pass";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_file_list);
+
+        // 初始化传感器
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        }
+
+        // 应用锁校验
+        SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        boolean isAnyLockEnabled = sp.getBoolean(SP_LOCK_FACE, false)
+                || sp.getBoolean(SP_LOCK_FINGER, false)
+                || sp.getBoolean(SP_LOCK_PASS, false);
+        
+        if (isAnyLockEnabled && !isBiometricAuthenticated) {
+            showBiometricPrompt();
+        }
 
         // 初始化
         rvFiles = findViewById(R.id.rv_files);
@@ -123,6 +162,7 @@ public class FileListActivity extends AppCompatActivity {
         layoutFilesContainer = findViewById(R.id.layout_files_container);
         layoutMe = findViewById(R.id.layout_me);
         layoutTrans = findViewById(R.id.layout_trans);
+        layoutAi = findViewById(R.id.layout_ai);
         layoutTransCategories = findViewById(R.id.layout_trans_categories);
         layoutTransListContainer = findViewById(R.id.layout_trans_list_container);
         playerView = findViewById(R.id.player_full_screen);
@@ -147,7 +187,6 @@ public class FileListActivity extends AppCompatActivity {
         TextView tvVersionDisplay = findViewById(R.id.tv_app_version);
         
         // 显示当前登录用户名
-        SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
         String savedUsername = sp.getString("username", "admin");
         tvUsernameDisplay.setText("当前用户: " + savedUsername);
 
@@ -201,12 +240,43 @@ public class FileListActivity extends AppCompatActivity {
         // 修改密码
         findViewById(R.id.btn_change_password).setOnClickListener(v -> showChangePasswordDialog());
 
+        // 2FA 管理
+        switch2FA = findViewById(R.id.switch_2fa);
+        btnViewQR = findViewById(R.id.btn_view_qr);
+        
+        switch2FA.setOnClickListener(v -> {
+            boolean isChecked = switch2FA.isChecked();
+            if (!isChecked) {
+                // 如果是尝试关闭，弹出确认框
+                new AlertDialog.Builder(this)
+                        .setTitle("确认关闭安全盾？")
+                        .setMessage("关闭后，登录将不再需要动态验证码，账号风险将增加。")
+                        .setPositiveButton("确认关闭", (dialog, which) -> toggle2FA(false))
+                        .setNegativeButton("取消", (dialog, which) -> switch2FA.setChecked(true))
+                        .show();
+            } else {
+                toggle2FA(true);
+            }
+        });
+
+        btnViewQR.setOnClickListener(v -> toggle2FA(true));
+
+        // 检查更新
+        findViewById(R.id.btn_check_update_me).setOnClickListener(v -> checkUpdateMe());
+
+        // 应用锁设置入口
+        btnAppLockSettings = findViewById(R.id.btn_app_lock_settings);
+        btnAppLockSettings.setOnClickListener(v -> showAppLockDetailDialog());
+
+        // 关于我们
+        findViewById(R.id.btn_about_us).setOnClickListener(v -> showAboutDialog());
+
         // 注销账号逻辑
         findViewById(R.id.tv_cancel_account).setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("确认注销账号？")
                     .setMessage("此操作将永久删除您的本地账号以及云端文件夹（" + savedUsername + "）内的所有数据，且不可恢复！")
-                    .setPositiveButton("确认注销", (dialog, which) -> cancelAccount(savedUsername))
+                    .setPositiveButton("确认注销", (dialog, which) -> cancelAccount(savedUsername, null))
                     .setNegativeButton("取消", null)
                     .show();
         });
@@ -287,12 +357,14 @@ public class FileListActivity extends AppCompatActivity {
 
         // 底部导航切换
         com.google.android.material.bottomnavigation.BottomNavigationView nav = findViewById(R.id.bottom_navigation);
+        nav.setItemIconTintList(null); // 关键：禁用系统涂色，显示图标原图颜色
         nav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_files) {
                 layoutFilesContainer.setVisibility(View.VISIBLE);
                 layoutMe.setVisibility(View.GONE);
                 layoutTrans.setVisibility(View.GONE);
+                layoutAi.setVisibility(View.GONE);
                 fabUpload.setVisibility(View.VISIBLE);
                 fabNewFolder.setVisibility(View.VISIBLE);
                 
@@ -304,6 +376,18 @@ public class FileListActivity extends AppCompatActivity {
                 layoutFilesContainer.setVisibility(View.GONE);
                 layoutMe.setVisibility(View.GONE);
                 layoutTrans.setVisibility(View.VISIBLE);
+                layoutAi.setVisibility(View.GONE);
+                fabUpload.setVisibility(View.GONE);
+                fabNewFolder.setVisibility(View.GONE);
+                fabShowPlayer.setVisibility(View.GONE);
+                fabDownload.setVisibility(View.GONE);
+                fabMove.setVisibility(View.GONE);
+                fabDelete.setVisibility(View.GONE);
+            } else if (id == R.id.nav_ai) {
+                layoutFilesContainer.setVisibility(View.GONE);
+                layoutMe.setVisibility(View.GONE);
+                layoutTrans.setVisibility(View.GONE);
+                layoutAi.setVisibility(View.VISIBLE);
                 fabUpload.setVisibility(View.GONE);
                 fabNewFolder.setVisibility(View.GONE);
                 fabShowPlayer.setVisibility(View.GONE);
@@ -314,6 +398,7 @@ public class FileListActivity extends AppCompatActivity {
                 layoutFilesContainer.setVisibility(View.GONE);
                 layoutMe.setVisibility(View.VISIBLE);
                 layoutTrans.setVisibility(View.GONE);
+                layoutAi.setVisibility(View.GONE);
                 fabUpload.setVisibility(View.GONE);
                 fabNewFolder.setVisibility(View.GONE);
                 fabShowPlayer.setVisibility(View.GONE);
@@ -374,6 +459,41 @@ public class FileListActivity extends AppCompatActivity {
         
         // 校验云端账号是否存在
         validateAccount(savedUsername, sp.getString("password", ""));
+        
+        // 获取初始 2FA 状态
+        toggle2FAStatusOnly(savedUsername, sp.getString("password", ""));
+
+        // 绑定 AI 助手按钮
+        findViewById(R.id.btn_open_ai_chat).setOnClickListener(v -> showAiChatDialog());
+    }
+
+    private void toggle2FAStatusOnly(String user, String pass) {
+        new Thread(() -> {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("username", user);
+                json.put("password", pass);
+                json.put("action", "status");
+
+                RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json"));
+                Request request = new Request.Builder()
+                        .url(Config.getBackendUrl() + "/manage_2fa")
+                        .post(body)
+                        .build();
+
+                OkHttpClient client = new OkHttpClient();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        JSONObject respJson = new JSONObject(response.body().string());
+                        boolean isEnabled = respJson.optBoolean("twoFactorEnabled", false);
+                        runOnUiThread(() -> {
+                            switch2FA.setChecked(isEnabled);
+                            btnViewQR.setVisibility(isEnabled ? View.VISIBLE : View.GONE);
+                        });
+                    }
+                }
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void validateAccount(String username, String password) {
@@ -577,6 +697,9 @@ public class FileListActivity extends AppCompatActivity {
                 tvAudioTitle.setText(file.getName());
                 showPlayer(null);
                 playAudio(url);
+            } else if (ext.matches("pdf|doc|docx|xls|xlsx|ppt|pptx")) {
+                // 文档类型：在线预览通常需要转换，这里先实现“极速预览”逻辑：下载到临时目录并调用系统打开
+                previewDocument(file, url);
             } else {
                 Toast.makeText(this, "暂不支持预览该格式", Toast.LENGTH_SHORT).show();
             }
@@ -584,6 +707,148 @@ public class FileListActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "预览失败", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void previewDocument(CloudFile file, String url) {
+        AlertDialog progressDialog = new AlertDialog.Builder(this)
+                .setTitle("正在准备预览")
+                .setMessage("正在下载文档: " + file.getName())
+                .setCancelable(false)
+                .show();
+
+        new Thread(() -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+                Request request = new Request.Builder()
+                        .url(url)
+                        .header("Authorization", Credentials.basic(user_dav, pass_dav))
+                        .build();
+
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        File cacheDir = getExternalCacheDir();
+                        File tempFile = new File(cacheDir, file.getName());
+                        
+                        try (BufferedSink sink = Okio.buffer(Okio.sink(tempFile))) {
+                            sink.writeAll(response.body().source());
+                        }
+
+                        runOnUiThread(() -> {
+                            progressDialog.dismiss();
+                            openLocalFile(tempFile);
+                        });
+                    } else {
+                        runOnUiThread(() -> {
+                            progressDialog.dismiss();
+                            Toast.makeText(this, "下载预览文件失败: " + response.code(), Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    progressDialog.dismiss();
+                    Toast.makeText(this, "预览出错: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    private void openLocalFile(File file) {
+        try {
+            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
+            String extension = file.getName().substring(file.getName().lastIndexOf(".") + 1).toLowerCase();
+            String mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+            
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, mimeType);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            startActivity(Intent.createChooser(intent, "打开文档"));
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开该文件，请安装相应的预览应用 (如 WPS 或 Office)", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void showAiChatDialog() {
+        Intent intent = new Intent(this, ChatActivity.class);
+        startActivity(intent);
+    }
+
+    private void performAiAssistantRequest(String query) {
+        SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        String username = sp.getString("username", "admin");
+
+        AlertDialog loading = new AlertDialog.Builder(this)
+                .setMessage("AI 正在分析文件并思考中...")
+                .setCancelable(false)
+                .show();
+
+        new Thread(() -> {
+            try {
+                // 1. 获取本地文件列表
+                java.util.List<FileIndex> allFiles = db.userDao().getAllFilesForAi(username);
+
+                // 2. 构造请求体
+                JSONObject json = new JSONObject();
+                json.put("username", username);
+                json.put("query", query);
+
+                org.json.JSONArray fileArray = new org.json.JSONArray();
+                for (FileIndex f : allFiles) {
+                    JSONObject fObj = new JSONObject();
+                    fObj.put("name", f.name);
+                    fObj.put("fullPath", f.fullPath);
+                    fObj.put("isDir", f.isDir);
+                    fileArray.put(fObj);
+                }
+                json.put("files", fileArray);
+
+                // 3. 发起请求
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .build();
+                RequestBody body = RequestBody.create(
+                        json.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+                Request request = new Request.Builder()
+                        .url("http://47.97.50.135:8000/ai-assistant")
+                        .post(body)
+                        .build();
+
+                try (Response response = client.newCall(request).execute()) {
+                    String respStr = response.body().string();
+                    runOnUiThread(() -> {
+                        loading.dismiss();
+                        if (response.isSuccessful()) {
+                            try {
+                                JSONObject result = new JSONObject(respStr);
+                                showAiAnswer(result.getString("answer"), result.getInt("today_total"));
+                            } catch (Exception e) { e.printStackTrace(); }
+                        } else if (response.code() == 429) {
+                            Toast.makeText(this, "今日 50000 Token 额度已用完", Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(this, "助手连接失败 (错误码: " + response.code() + ")", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    loading.dismiss();
+                    Toast.makeText(this, "网络请求出错: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    private void showAiAnswer(String answer, int totalUsed) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("助手回答")
+                .setMessage(answer + "\n\n(今日已消耗: " + totalUsed + "/50000 Token)")
+                .setPositiveButton("好的", null)
+                .show();
     }
 
     private void performSearch(String query) {
@@ -1118,7 +1383,194 @@ public class FileListActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void cancelAccount(String username) {
+    private void toggle2FA(boolean enable) {
+        SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        String username = sp.getString("username", "");
+        String password = sp.getString("password", "");
+
+        new Thread(() -> {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("username", username);
+                json.put("password", password);
+                json.put("action", enable ? "enable" : "disable");
+
+                RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json"));
+                Request request = new Request.Builder()
+                        .url(Config.getBackendUrl() + "/manage_2fa")
+                        .post(body)
+                        .build();
+
+                OkHttpClient client = new OkHttpClient();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        String respStr = response.body().string();
+                        JSONObject respJson = new JSONObject(respStr);
+                        boolean isEnabled = respJson.optBoolean("twoFactorEnabled", false);
+                        org.json.JSONArray secret = respJson.optJSONArray("twoFactorSecret");
+
+                        runOnUiThread(() -> {
+                            switch2FA.setChecked(isEnabled);
+                            btnViewQR.setVisibility(isEnabled ? View.VISIBLE : View.GONE);
+                            if (enable && isEnabled && secret != null) {
+                                try {
+                                    JSONObject qrJson = new JSONObject();
+                                    qrJson.put("issuer", "CloudDisk");
+                                    qrJson.put("account", username);
+                                    qrJson.put("secret", secret);
+                                    
+                                    show2FAQRCodeDialog(username, qrJson.toString());
+                                } catch (Exception ignored) {}
+                            } else if (!enable && !isEnabled) {
+                                Toast.makeText(this, "安全盾已关闭", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "2FA操作失败", Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private void downloadCDAuthy() {
+        String url = "https://gh-proxy.org/https://github.com/SmartZWZ/CDAuthy/releases/download/V1.0/CDAuthy-V1.0.apk";
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+        request.setTitle("下载 CDAuthy 验证器");
+        request.setDescription("配套 CloudDisk 安全盾使用");
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "CDAuthy-V1.0.apk");
+
+        DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        if (manager != null) {
+            manager.enqueue(request);
+            Toast.makeText(this, "正在为您下载配套验证器 CDAuthy...", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void show2FAQRCodeDialog(String username, String secretJson) {
+        String qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + android.net.Uri.encode(secretJson);
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+
+        android.widget.ImageView imageView = new android.widget.ImageView(this);
+        int size = (int) (250 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(size, size);
+        imageView.setLayoutParams(lp);
+
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        imageView.setPadding(padding, padding, padding, padding);
+
+        Glide.with(this)
+                .load(qrUrl)
+                .placeholder(android.R.drawable.progress_indeterminate_horizontal)
+                .error(android.R.drawable.stat_notify_error)
+                .into(imageView);
+        
+        layout.addView(imageView);
+
+        // 添加下载配套验证器按钮
+        com.google.android.material.button.MaterialButton btnDownload = new com.google.android.material.button.MaterialButton(this);
+        btnDownload.setText("下载配套验证器 (CDAuthy)");
+        android.widget.LinearLayout.LayoutParams btnLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnLp.setMargins(0, 0, 0, padding);
+        btnDownload.setLayoutParams(btnLp);
+        btnDownload.setOnClickListener(v -> downloadCDAuthy());
+        layout.addView(btnDownload);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("2FA 安全盾绑定")
+                .setMessage("账号: " + username + "\n\n⚠️ 重要提示：\n请使用 CDAuthy 扫描二维码。若未安装，请点击下方按钮下载。建议【截图保存】此二维码以防丢失。")
+                .setView(layout)
+                .setPositiveButton("我已安全保存", null)
+                .show();
+    }
+
+    private void checkUpdateMe() {
+        Toast.makeText(this, "正在检查更新...", Toast.LENGTH_SHORT).show();
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder().url(Config.UPDATE_URL).build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull java.io.IOException e) {
+                runOnUiThread(() -> Toast.makeText(FileListActivity.this, "检查失败，请检查网络", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws java.io.IOException {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String jsonStr = response.body().string();
+                        JSONObject json = new JSONObject(jsonStr);
+                        int remoteVersionCode = json.getInt("versionCode");
+                        String versionName = json.getString("versionName");
+                        String updateMessage = json.getString("updateMessage");
+                        String downloadUrl = json.getString("downloadUrl");
+
+                        if (remoteVersionCode > BuildConfig.VERSION_CODE) {
+                            runOnUiThread(() -> showUpdateDialog(versionName, updateMessage, downloadUrl));
+                        } else {
+                            runOnUiThread(() -> Toast.makeText(FileListActivity.this, "当前已是最新版本", Toast.LENGTH_SHORT).show());
+                        }
+                    } catch (Exception e) {
+                        runOnUiThread(() -> Toast.makeText(FileListActivity.this, "解析失败", Toast.LENGTH_SHORT).show());
+                    }
+                }
+            }
+        });
+    }
+
+    private void showUpdateDialog(String versionName, String message, String url) {
+        boolean[] useProxy = {true}; // 默认开启加速代理
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("发现新版本: " + versionName)
+                .setMessage(message)
+                .setCancelable(false)
+                .setMultiChoiceItems(new CharSequence[]{"使用 GitHub 加速下载 (推荐)"}, new boolean[]{true}, (dialog, which, isChecked) -> {
+                    useProxy[0] = isChecked;
+                })
+                .setPositiveButton("立即下载", (dialog, which) -> {
+                    String finalUrl = useProxy[0] ? (Config.GITHUB_PROXY + url) : url;
+                    Toast.makeText(this, "开始下载新版本...", Toast.LENGTH_SHORT).show();
+                    downloadNewVersion(finalUrl, versionName);
+                })
+                .setNegativeButton("稍后再说", null)
+                .show();
+    }
+
+    private void downloadNewVersion(String url, String versionName) {
+        android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(url));
+        request.setTitle("CloudDisk 更新 - " + versionName);
+        request.setDescription("正在下载新版本安装包...");
+        request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        String fileName = "CloudDisk_v" + versionName + ".apk";
+        request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, fileName);
+
+        android.app.DownloadManager manager = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        if (manager != null) {
+            manager.enqueue(request);
+        }
+    }
+
+    private void showAboutDialog() {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("关于 CloudDisk")
+                .setMessage("CloudDisk 一站式私有云存储解决方案\n\n" +
+                        "当前版本: " + BuildConfig.VERSION_NAME + "\n" +
+                        "开发者: ZWZ\n" +
+                        "联系我们: support@zwz.com\n\n" +
+                        "Copyright © 2026 ZWZ Studio.\nAll Rights Reserved.")
+                .setPositiveButton("确定", null)
+                .show();
+    }
+
+    private void cancelAccount(String username, String code) {
         SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
         String password = sp.getString("password", "");
 
@@ -1129,32 +1581,43 @@ public class FileListActivity extends AppCompatActivity {
                 JSONObject json = new JSONObject();
                 json.put("username", username);
                 json.put("password", password);
+                if (code != null) json.put("code", code);
 
                 RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json"));
                 Request cancelReq = new Request.Builder()
-                        .url(Config.getBackendUrl() + "/cancel-account")
+                        .url(Config.getBackendUrl() + "/cancel_account")
                         .post(body)
                         .build();
 
                 try (Response resp = client.newCall(cancelReq).execute()) {
+                    String respStr = resp.body() != null ? resp.body().string() : "";
                     if (!resp.isSuccessful()) {
-                        runOnUiThread(() -> Toast.makeText(this, "云端注销失败", Toast.LENGTH_SHORT).show());
+                        String error = "FAIL_2FA".equals(respStr) ? "验证码错误" : ("云端注销失败: " + respStr);
+                        runOnUiThread(() -> Toast.makeText(this, error, Toast.LENGTH_SHORT).show());
+                        return;
+                    }
+
+                    if ("NEED_2FA".equals(respStr)) {
+                        runOnUiThread(() -> show2FADialogForCancel(username));
                         return;
                     }
                 }
 
-                // 2. 删除云端 WebDAV 文件夹
-                Request davReq = new Request.Builder()
-                        .url(CD2_URL + encodePath(username))
-                        .delete()
-                        .header("Authorization", Credentials.basic(Config.WEBDAV_USER, Config.WEBDAV_PASS))
-                        .build();
+                // 2. 尝试删除云端 WebDAV 文件夹（即使失败也继续注销流程）
+                try {
+                    Request davReq = new Request.Builder()
+                            .url(CD2_URL + encodePath(username))
+                            .delete()
+                            .header("Authorization", Credentials.basic(Config.WEBDAV_USER, Config.WEBDAV_PASS))
+                            .build();
+                    client.newCall(davReq).execute().close(); 
+                } catch (Exception e) {
+                    e.printStackTrace(); // 文件夹删除失败不影响账号注销逻辑
+                }
                 
-                client.newCall(davReq).execute(); // 即使文件夹删失败（可能已空），也继续
-                
-                // 3. 这里的本地数据库删除不再需要（因为现在走云端同步），
-                // 但为了保险，清空本地相关缓存
+                // 3. 清空本地数据库相关缓存
                 db.userDao().clearFileIndex(username);
+                db.userDao().deleteUser(username); // 同时删除本地 User 表记录
                 
                 // 4. 清除登录状态并退出
                 runOnUiThread(() -> {
@@ -1168,6 +1631,33 @@ public class FileListActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(this, "操作失败，请检查网络", Toast.LENGTH_SHORT).show());
             }
         }).start();
+    }
+
+    private void show2FADialogForCancel(String username) {
+        EditText etCode = new EditText(this);
+        etCode.setHint("请输入 6 位安全验证码");
+        etCode.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        etCode.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
+
+        int padding = (int) (24 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout container = new android.widget.FrameLayout(this);
+        container.setPadding(padding, padding / 2, padding, 0);
+        container.addView(etCode);
+
+        new AlertDialog.Builder(this)
+                .setTitle("安全验证")
+                .setMessage("注销账号属于敏感操作，请输入 6 位安全验证码。")
+                .setView(container)
+                .setPositiveButton("验证并注销", (dialog, which) -> {
+                    String code = etCode.getText().toString();
+                    if (code.length() == 6) {
+                        cancelAccount(username, code);
+                    } else {
+                        Toast.makeText(this, "请输入6位验证码", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void uploadFile(Uri uri) {
@@ -1656,11 +2146,180 @@ public class FileListActivity extends AppCompatActivity {
         super.onPause();
         if (videoPlayerView != null && exoPlayer != null) exoPlayer.pause();
         // 允许音频在后台播放且不受系统音量调节弹窗干扰，不再调用 mediaPlayer.pause()
+        
+        // 注销光线传感器
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(this);
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        // 注册光线传感器
+        if (sensorManager != null && lightSensor != null) {
+            sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+    }
+
+    private float smoothedLux = -1f;
+    private long lastUpdateTime = 0;
+    private static final long UPDATE_INTERVAL_MS = 1000; 
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
+            float lux = event.values[0];
+            // 低通滤波：平滑光强变化
+            if (smoothedLux == -1f) smoothedLux = lux;
+            else smoothedLux = (smoothedLux * 0.8f) + (lux * 0.2f);
+
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastUpdateTime > UPDATE_INTERVAL_MS) {
+                adjustScreenBrightness(smoothedLux);
+                lastUpdateTime = currentTime;
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // 不需要处理
+    }
+
+    private float lastLux = -1f;
+    private static final float LUX_THRESHOLD = 10.0f; // 增大阈值
+
+    private void adjustScreenBrightness(float lux) {
+        // 只有当平滑后的光强变化超过 10 Lux 才真正修改硬件亮度
+        if (lastLux != -1 && Math.abs(lux - lastLux) < LUX_THRESHOLD) {
+            return;
+        }
+        lastLux = lux;
+
+        WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+        // 映射逻辑优化：增加渐变感
+        float brightness = 0.1f + (lux / 200f); 
+        if (brightness > 1.0f) brightness = 1.0f;
+        if (brightness < 0.1f) brightness = 0.1f;
+        
+        layoutParams.screenBrightness = brightness;
+        getWindow().setAttributes(layoutParams);
+    }
+
+    private void showAppLockDetailDialog() {
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_app_lock_detail, null);
+        com.google.android.material.switchmaterial.SwitchMaterial sFace = view.findViewById(R.id.sw_face);
+        com.google.android.material.switchmaterial.SwitchMaterial sFinger = view.findViewById(R.id.sw_finger);
+        com.google.android.material.switchmaterial.SwitchMaterial sPass = view.findViewById(R.id.sw_pass);
+
+        SharedPreferences sp = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        sFace.setChecked(sp.getBoolean(SP_LOCK_FACE, false));
+        sFinger.setChecked(sp.getBoolean(SP_LOCK_FINGER, false));
+        sPass.setChecked(sp.getBoolean(SP_LOCK_PASS, false));
+
+        // 硬件检测
+        android.content.pm.PackageManager pm = getPackageManager();
+        boolean hasFace = pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FACE);
+        boolean hasFinger = pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FINGERPRINT);
+
+        if (!hasFace) { sFace.setEnabled(false); sFace.setAlpha(0.4f); }
+        if (!hasFinger) { sFinger.setEnabled(false); sFinger.setAlpha(0.4f); }
+
+        sFace.setOnCheckedChangeListener((b, checked) -> handleLockToggle(SP_LOCK_FACE, checked, sFace));
+        sFinger.setOnCheckedChangeListener((b, checked) -> handleLockToggle(SP_LOCK_FINGER, checked, sFinger));
+        sPass.setOnCheckedChangeListener((b, checked) -> handleLockToggle(SP_LOCK_PASS, checked, sPass));
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("应用锁安全设置")
+                .setView(view)
+                .setPositiveButton("完成", null)
+                .show();
+    }
+
+    private void handleLockToggle(String key, boolean checked, com.google.android.material.switchmaterial.SwitchMaterial sw) {
+        if (checked) {
+            verifyIdentityBeforeEnable(key, sw);
+        } else {
+            getSharedPreferences("user_prefs", MODE_PRIVATE).edit().putBoolean(key, false).apply();
+        }
+    }
+
+    private void verifyIdentityBeforeEnable(String key, com.google.android.material.switchmaterial.SwitchMaterial sw) {
+        String typeName = "安全锁";
+        if (SP_LOCK_FACE.equals(key)) typeName = "面容识别";
+        else if (SP_LOCK_FINGER.equals(key)) typeName = "指纹识别";
+        else if (SP_LOCK_PASS.equals(key)) typeName = "设备密码";
+
+        final String finalTypeName = typeName;
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                super.onAuthenticationSucceeded(result);
+                getSharedPreferences("user_prefs", MODE_PRIVATE).edit().putBoolean(key, true).apply();
+                Toast.makeText(FileListActivity.this, finalTypeName + "开启成功", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                runOnUiThread(() -> sw.setChecked(false));
+                Toast.makeText(FileListActivity.this, "开启失败: " + errString, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("开启" + typeName)
+                .setSubtitle("请通过" + typeName + "验证您的身份")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
+    private void showBiometricPrompt() {
+        showBiometricPromptInternal(false);
+    }
+
+    private void showBiometricPromptInternal(boolean isForSetting) {
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override
+            public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                Toast.makeText(FileListActivity.this, "认证错误: " + errString, Toast.LENGTH_SHORT).show();
+                if (!isForSetting) finish();
+                else {
+                    // 这里的 isForSetting 分支在新的逻辑中已不再直接由 initAppLockSwitch 调用
+                }
+            }
+
+            @Override
+            public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                super.onAuthenticationSucceeded(result);
+                isBiometricAuthenticated = true;
+                Toast.makeText(FileListActivity.this, "认证成功", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onAuthenticationFailed() {
+                super.onAuthenticationFailed();
+                Toast.makeText(FileListActivity.this, "认证失败，请重试", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("应用锁")
+                .setSubtitle("使用生物识别（指纹、面容）或设备密码进入")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
+    private void initAppLockSwitch() {
+        // 该方法已被弃用，逻辑已移至 showAppLockDetailDialog
     }
 
     @Override

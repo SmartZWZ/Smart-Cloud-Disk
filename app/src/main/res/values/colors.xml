@@ -2,4 +2,29 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- 品牌主色 -->
+    <color name="primary">#2196F3</color>
+    <color name="primary_dark">#1976D2</color>
+
+    <!-- 辅色/功能色 -->
+    <color name="secondary">#4CAF50</color>
+    <color name="danger">#F44336</color>
+    <color name="warning">#FF9800</color>
+    <color name="accent_purple">#9C27B0</color>
+    <color name="accent_pink">#E91E63</color>
+
+    <!-- 文本颜色 -->
+    <color name="text_primary">#333333</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_tertiary">#999999</color>
+    <color name="text_disabled">#BBBBBB</color>
+    <color name="text_copyright">#CCCCCC</color>
+
+    <!-- 背景色 -->
+    <color name="background">#FFFFFF</color>
+    <color name="surface_light">#F9F9F9</color>
+    <color name="surface_header">#EEEEEE</color>
+    <color name="divider">#F0F0F0</color>
+    <color name="player_background">#F5F5F5</color>
 </resources>
